@@ -22,9 +22,10 @@ export default function Dashboard({ stats, orders, onRefresh }: DashboardProps) 
   const calendarDays = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
   // Get orders for each day
-  const ordersByDay = (day: Date) => {
-    return orders.filter(o => o.status !== 'delivered' && isSameDay(new Date(o.delivery_date), day));
-  };
+  const eventsByDay = (day: Date) => ({
+    deliveries: orders.filter(o => o.status !== 'delivered' && isSameDay(new Date(o.delivery_date), day)),
+    cuttings: orders.filter(o => o.cutting_date && isSameDay(new Date(o.cutting_date), day))
+  });
 
   return (
     <div className="space-y-8">
@@ -146,33 +147,53 @@ export default function Dashboard({ stats, orders, onRefresh }: DashboardProps) 
               ))}
               
               {calendarDays.map((day, i) => {
-                const dayOrders = ordersByDay(day);
-                const hasOrders = dayOrders.length > 0;
+                const { deliveries, cuttings } = eventsByDay(day);
+                const hasDeliveries = deliveries.length > 0;
+                const hasCuttings = cuttings.length > 0;
                 
                 return (
-                  <div key={i} className="relative group">
+                   <div key={i} className="relative group">
                     <button 
                       className={`w-full aspect-square text-[10px] rounded-full flex items-center justify-center transition-all ${
                         isToday(day) 
                           ? 'bg-brand-olive text-white shadow-md font-bold' 
-                          : hasOrders 
+                          : hasDeliveries 
                             ? 'bg-amber-100 text-amber-900 font-bold' 
-                            : 'text-stone-400 hover:bg-stone-50'
+                            : hasCuttings
+                              ? 'bg-blue-100 text-blue-900 font-bold'
+                              : 'text-stone-400 hover:bg-stone-50'
                       }`}
                     >
                       {format(day, 'd')}
                     </button>
-                    {hasOrders && (
-                      <div className="absolute top-0 right-0 w-2 h-2 bg-rose-500 rounded-full border-2 border-white" />
-                    )}
+                    <div className="absolute top-0 right-0 flex flex-col gap-0.5">
+                      {hasDeliveries && (
+                        <div className="w-2 h-2 bg-rose-500 rounded-full border-2 border-white" title="Delivery" />
+                      )}
+                      {hasCuttings && (
+                        <div className="w-2 h-2 bg-blue-500 rounded-full border-2 border-white" title="Cutting" />
+                      )}
+                    </div>
                     
                     {/* Tooltip on hover */}
-                    {hasOrders && (
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-32 bg-stone-800 text-white p-2 rounded-xl text-[9px] opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-10 shadow-xl">
-                        <p className="font-bold border-b border-white/20 pb-1 mb-1">{dayOrders.length} Delivery</p>
-                        {dayOrders.slice(0, 2).map(o => (
-                          <p key={o.id} className="truncate">• {o.customer_name}</p>
-                        ))}
+                    {(hasDeliveries || hasCuttings) && (
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-36 bg-stone-800 text-white p-2 rounded-xl text-[9px] opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-20 shadow-xl">
+                        {hasDeliveries && (
+                          <div className="mb-2">
+                             <p className="font-bold border-b border-white/20 pb-1 mb-1 text-rose-400">Deliveries ({deliveries.length})</p>
+                             {deliveries.slice(0, 2).map(o => (
+                               <p key={o.id} className="truncate">• {o.customer_name}</p>
+                             ))}
+                          </div>
+                        )}
+                        {hasCuttings && (
+                           <div>
+                             <p className="font-bold border-b border-white/20 pb-1 mb-1 text-blue-400">Cutting Sessions ({cuttings.length})</p>
+                             {cuttings.slice(0, 2).map(o => (
+                               <p key={o.id} className="truncate">• {o.customer_name}</p>
+                             ))}
+                           </div>
+                        )}
                       </div>
                     )}
                   </div>

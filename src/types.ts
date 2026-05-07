@@ -18,6 +18,7 @@ export interface Order {
   status: 'pending' | 'cutting' | 'stitching' | 'trial' | 'ready' | 'delivered';
   priority: 'normal' | 'high' | 'urgent';
   trial_date?: string;
+  cutting_date?: string;
   delivery_date: string;
   notes?: string;
   advance_paid: number;

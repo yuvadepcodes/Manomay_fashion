@@ -24,6 +24,7 @@ export default function AddOrder({ customers, onRefresh }: AddOrderProps) {
   });
 
   const [isLoading, setIsLoading] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   const handleNext = () => setStep(step + 1);
   const handleBack = () => setStep(step - 1);
@@ -83,10 +84,13 @@ export default function AddOrder({ customers, onRefresh }: AddOrderProps) {
                 onChange={(e) => {
                   setNewCustomer({ ...newCustomer, name: e.target.value });
                   setSelectedCustomerId('');
+                  setShowSuggestions(true);
                 }}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                onFocus={() => setShowSuggestions(true)}
               />
-              {newCustomer.name && !selectedCustomerId && filteredCustomers.length > 0 && (
-                <div className="absolute top-full left-0 right-0 bg-white shadow-2xl rounded-2xl p-2 z-50 border border-stone-100 mt-2">
+              {showSuggestions && newCustomer.name && !selectedCustomerId && filteredCustomers.length > 0 && (
+                <div className="absolute top-full left-0 right-0 bg-white shadow-2xl rounded-2xl p-2 z-50 border border-stone-100 mt-2 max-h-48 overflow-y-auto">
                   <p className="text-[9px] uppercase font-bold text-stone-300 px-3 py-1">Existing Clients</p>
                   {filteredCustomers.map(c => (
                     <button 

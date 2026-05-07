@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Order } from '../types';
-import { Search, Filter, ChevronRight, ChevronLeft, CheckCircle2, Circle } from 'lucide-react';
+import { Search, Filter, ChevronRight, ChevronLeft, CheckCircle2, Circle, Scissors } from 'lucide-react';
 import { motion } from 'motion/react';
 import { api } from '../api';
+import EditOrderModal from './EditOrderModal';
 
 interface OrderListProps {
   orders: Order[];
@@ -21,6 +22,8 @@ const statusColors: any = {
 export default function OrderList({ orders, onRefresh }: OrderListProps) {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   const filteredOrders = orders.filter(o => {
     const matchesSearch = 
@@ -40,6 +43,20 @@ export default function OrderList({ orders, onRefresh }: OrderListProps) {
       await api.updateOrder(id, { status: nextStatus as any });
       onRefresh();
     }
+  };
+
+  const handleEditClick = (order: Order) => {
+    setSelectedOrder(order);
+    setIsEditModalOpen(true);
+  };
+
+  const cyclePriority = async (id: string, currentPriority: string) => {
+    const priorities = ['normal', 'high', 'urgent'];
+    const currentIndex = priorities.indexOf(currentPriority);
+    const nextIndex = (currentIndex + 1) % priorities.length;
+    const nextPriority = priorities[nextIndex];
+    await api.updateOrder(id, { priority: nextPriority as any });
+    onRefresh();
   };
 
   const formatDate = (dateStr: string) => {
@@ -94,21 +111,32 @@ export default function OrderList({ orders, onRefresh }: OrderListProps) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.05 }}
             key={order.id}
-            className="bg-white p-5 rounded-[2rem] border border-stone-50 shadow-sm group flex flex-col justify-between md:hover:shadow-md transition-all active:scale-95 md:active:scale-[0.98]"
+            onClick={() => handleEditClick(order)}
+            className="bg-white p-5 rounded-[2rem] border border-stone-50 shadow-sm group flex flex-col justify-between md:hover:shadow-md transition-all cursor-pointer active:scale-95 md:active:scale-[0.98]"
           >
             <div>
               <div className="flex justify-between items-start mb-3">
-                <div>
-                  <span className={`text-[10px] uppercase font-bold tracking-tighter px-2.5 py-1 rounded-full ${statusColors[order.status]}`}>
-                    {order.status}
-                  </span>
+                <div className="flex-1">
+                  <div className="flex gap-2">
+                    <span className={`text-[10px] uppercase font-bold tracking-tighter px-2.5 py-1 rounded-full ${statusColors[order.status]}`}>
+                      {order.status}
+                    </span>
+                    {order.cutting_date && (
+                      <span className="text-[10px] uppercase font-bold tracking-tighter px-2.5 py-1 rounded-full bg-blue-50 text-blue-500 flex items-center gap-1">
+                        <Scissors className="w-3 h-3" /> Scheduled
+                      </span>
+                    )}
+                  </div>
                   <h3 className="text-lg font-serif font-medium text-stone-800 mt-2">{order.customer_name}</h3>
                   <p className="text-xs text-stone-500">{order.dress_type} • {order.quantity} qty</p>
                 </div>
                   <div className="flex gap-2">
                     {order.status !== 'pending' && (
                       <button 
-                        onClick={() => updateStatus(order.id, order.status, -1)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          updateStatus(order.id, order.status, -1);
+                        }}
                         className="w-10 h-10 rounded-full border-2 border-stone-100 flex items-center justify-center text-stone-300 hover:border-brand-olive hover:text-brand-olive transition-colors bg-white/50"
                         title="Previous Status"
                       >
@@ -116,7 +144,10 @@ export default function OrderList({ orders, onRefresh }: OrderListProps) {
                       </button>
                     )}
                     <button 
-                      onClick={() => updateStatus(order.id, order.status)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        updateStatus(order.id, order.status);
+                      }}
                       className="w-10 h-10 rounded-full border-2 border-stone-100 flex items-center justify-center text-stone-300 hover:border-brand-olive hover:text-brand-olive transition-colors bg-white/50"
                       title="Next Status"
                     >
@@ -127,12 +158,26 @@ export default function OrderList({ orders, onRefresh }: OrderListProps) {
             </div>
             
             <div className="flex justify-between items-center pt-3 border-t border-stone-50 mt-4">
-              <div className="flex gap-2 items-center">
-                <div className={`w-1.5 h-1.5 rounded-full ${
-                  order.priority === 'urgent' ? 'bg-rose-500' : 'bg-stone-300'
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  cyclePriority(order.id, order.priority);
+                }}
+                className="flex gap-2 items-center hover:bg-stone-50 px-2 py-1 -ml-2 rounded-full transition-colors cursor-pointer group"
+                title="Change Priority"
+              >
+                <div className={`w-1.5 h-1.5 rounded-full transition-all group-hover:scale-125 ${
+                  order.priority === 'urgent' 
+                    ? 'bg-rose-500 shadow-[0_0_4px_rgba(244,63,94,0.5)]' 
+                    : order.priority === 'high'
+                      ? 'bg-amber-500'
+                      : 'bg-stone-300'
                 }`} />
-                <span className="text-[10px] font-bold uppercase text-stone-400 tracking-widest">{order.priority}</span>
-              </div>
+                <span className={`text-[10px] font-bold uppercase tracking-widest ${
+                  order.priority === 'urgent' ? 'text-rose-500' : 
+                  order.priority === 'high' ? 'text-amber-600' : 'text-stone-400'
+                }`}>{order.priority}</span>
+              </button>
               <div className="text-right">
                 <span className="text-[10px] uppercase text-stone-400 font-bold tracking-tighter">Delivery</span>
                 <p className="text-xs font-bold text-stone-600">{formatDate(order.delivery_date)}</p>
@@ -149,6 +194,15 @@ export default function OrderList({ orders, onRefresh }: OrderListProps) {
             </div>
             <p className="text-stone-400 font-serif italic text-sm">No orders found matching your search</p>
           </div>
+        )}
+
+        {selectedOrder && (
+          <EditOrderModal 
+            order={selectedOrder}
+            isOpen={isEditModalOpen}
+            onClose={() => setIsEditModalOpen(false)}
+            onRefresh={onRefresh}
+          />
         )}
       </div>
     );
