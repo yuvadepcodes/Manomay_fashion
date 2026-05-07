@@ -72,9 +72,9 @@ export default function AddOrder({ customers, onRefresh }: AddOrderProps) {
 
       {step === 1 && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-          <div>
+          <div className="relative">
             <label className="block text-[10px] uppercase font-bold tracking-widest text-stone-400 mb-2">Customer Name</label>
-            <div className="relative">
+            <div className="relative group">
               <input 
                 type="text" 
                 placeholder="Ex: Mrs. Sharma" 
@@ -86,19 +86,20 @@ export default function AddOrder({ customers, onRefresh }: AddOrderProps) {
                 }}
               />
               {newCustomer.name && !selectedCustomerId && filteredCustomers.length > 0 && (
-                <div className="absolute top-full left-0 right-0 bg-white shadow-xl rounded-2xl p-2 z-10 border border-stone-100 mt-2">
+                <div className="absolute top-full left-0 right-0 bg-white shadow-2xl rounded-2xl p-2 z-50 border border-stone-100 mt-2">
                   <p className="text-[9px] uppercase font-bold text-stone-300 px-3 py-1">Existing Clients</p>
                   {filteredCustomers.map(c => (
                     <button 
                       key={c.id} 
-                      className="w-full text-left px-3 py-2 rounded-xl hover:bg-brand-cream flex justify-between items-center"
+                      type="button"
+                      className="w-full text-left px-3 py-2 rounded-xl hover:bg-brand-cream flex justify-between items-center transition-colors mb-1 last:mb-0"
                       onClick={() => {
                         setSelectedCustomerId(c.id);
                         setNewCustomer({ name: c.name, phone: c.phone });
                       }}
                     >
                       <div>
-                        <p className="text-sm font-medium">{c.name}</p>
+                        <p className="text-sm font-medium text-stone-800">{c.name}</p>
                         <p className="text-[10px] text-stone-400">{c.phone}</p>
                       </div>
                       <Check className="w-4 h-4 text-brand-olive" />
@@ -197,7 +198,15 @@ export default function AddOrder({ customers, onRefresh }: AddOrderProps) {
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-stone-400">Due Date</span>
-              <span className="font-bold text-brand-olive">{new Date(orderData.delivery_date).toLocaleDateString()}</span>
+              <span className="font-bold text-brand-olive">
+                {(() => {
+                  const date = new Date(orderData.delivery_date);
+                  const d = date.getDate().toString().padStart(2, '0');
+                  const m = (date.getMonth() + 1).toString().padStart(2, '0');
+                  const y = date.getFullYear();
+                  return `${d}/${m}/${y}`;
+                })()}
+              </span>
             </div>
           </div>
 

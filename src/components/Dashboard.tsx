@@ -1,7 +1,8 @@
 import { Order, DashboardStats } from '../types';
-import { AlertCircle, Clock, CheckCircle2, ChevronRight, TrendingUp } from 'lucide-react';
+import { AlertCircle, Clock, CheckCircle2, ChevronRight, TrendingUp, Calendar as CalendarIcon, ChevronLeft } from 'lucide-react';
 import { motion } from 'motion/react';
-import { format, isToday, isPast } from 'date-fns';
+import { format, isToday, isPast, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths } from 'date-fns';
+import { useState } from 'react';
 
 interface DashboardProps {
   stats: DashboardStats | null;
@@ -10,9 +11,20 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ stats, orders, onRefresh }: DashboardProps) {
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+
   const priorityOrders = orders
     .filter(o => o.status !== 'delivered')
     .slice(0, 5);
+
+  const monthStart = startOfMonth(currentMonth);
+  const monthEnd = endOfMonth(currentMonth);
+  const calendarDays = eachDayOfInterval({ start: monthStart, end: monthEnd });
+
+  // Get orders for each day
+  const ordersByDay = (day: Date) => {
+    return orders.filter(o => o.status !== 'delivered' && isSameDay(new Date(o.delivery_date), day));
+  };
 
   return (
     <div className="space-y-8">
@@ -89,7 +101,7 @@ export default function Dashboard({ stats, orders, onRefresh }: DashboardProps) 
                           ? 'text-amber-500' 
                           : 'text-stone-400'
                     }`}>
-                      {format(new Date(order.delivery_date), 'MMM d')}
+                      {format(new Date(order.delivery_date), 'dd/MM/yyyy')}
                     </p>
                     <ChevronRight className="w-4 h-4 text-stone-300 ml-auto mt-1" />
                   </div>
@@ -103,9 +115,73 @@ export default function Dashboard({ stats, orders, onRefresh }: DashboardProps) 
           </div>
         </section>
 
-        {/* Quick Actions / Info */}
-        <section className="md:col-span-2 space-y-4">
-          <div className="bg-brand-olive rounded-[2.5rem] p-8 text-white overflow-hidden relative h-full flex flex-col justify-center">
+        {/* Quick Actions / Calendar */}
+        <section className="md:col-span-2 space-y-6">
+          <div className="bg-white rounded-[2.5rem] p-6 border border-stone-100 shadow-sm">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="font-serif italic text-lg text-stone-800">Deadlines</h3>
+              <div className="flex items-center gap-3">
+                <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-1 hover:bg-stone-50 rounded-full">
+                  <ChevronLeft className="w-4 h-4 text-stone-400" />
+                </button>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-stone-500">
+                  {format(currentMonth, 'MMMM yyyy')}
+                </span>
+                <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-1 hover:bg-stone-50 rounded-full">
+                  <ChevronRight className="w-4 h-4 text-stone-400" />
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-7 gap-1 mb-2">
+              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
+                <div key={i} className="text-center text-[10px] font-bold text-stone-300 py-1">{d}</div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-7 gap-1">
+              {/* Padding for first day of month */}
+              {Array.from({ length: monthStart.getDay() }).map((_, i) => (
+                <div key={`pad-${i}`} className="h-8" />
+              ))}
+              
+              {calendarDays.map((day, i) => {
+                const dayOrders = ordersByDay(day);
+                const hasOrders = dayOrders.length > 0;
+                
+                return (
+                  <div key={i} className="relative group">
+                    <button 
+                      className={`w-full aspect-square text-[10px] rounded-full flex items-center justify-center transition-all ${
+                        isToday(day) 
+                          ? 'bg-brand-olive text-white shadow-md font-bold' 
+                          : hasOrders 
+                            ? 'bg-amber-100 text-amber-900 font-bold' 
+                            : 'text-stone-400 hover:bg-stone-50'
+                      }`}
+                    >
+                      {format(day, 'd')}
+                    </button>
+                    {hasOrders && (
+                      <div className="absolute top-0 right-0 w-2 h-2 bg-rose-500 rounded-full border-2 border-white" />
+                    )}
+                    
+                    {/* Tooltip on hover */}
+                    {hasOrders && (
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-32 bg-stone-800 text-white p-2 rounded-xl text-[9px] opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-10 shadow-xl">
+                        <p className="font-bold border-b border-white/20 pb-1 mb-1">{dayOrders.length} Delivery</p>
+                        {dayOrders.slice(0, 2).map(o => (
+                          <p key={o.id} className="truncate">• {o.customer_name}</p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="bg-brand-olive rounded-[2.5rem] p-8 text-white overflow-hidden relative">
             <div className="relative z-10">
               <h2 className="text-2xl font-serif mb-2 italic">Ready for the day?</h2>
               <p className="text-white/70 text-sm mb-6">Start by checking the cutting list or updating stitching progress.</p>

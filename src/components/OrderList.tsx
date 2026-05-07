@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Order } from '../types';
-import { Search, Filter, ChevronRight, CheckCircle2, Circle } from 'lucide-react';
+import { Search, Filter, ChevronRight, ChevronLeft, CheckCircle2, Circle } from 'lucide-react';
 import { motion } from 'motion/react';
 import { api } from '../api';
 
@@ -30,14 +30,24 @@ export default function OrderList({ orders, onRefresh }: OrderListProps) {
     return matchesSearch && matchesFilter;
   });
 
-  const updateStatus = async (id: string, currentStatus: string) => {
+  const updateStatus = async (id: string, currentStatus: string, direction: 1 | -1 = 1) => {
     const statusOrder = ['pending', 'cutting', 'stitching', 'trial', 'ready', 'delivered'];
     const currentIndex = statusOrder.indexOf(currentStatus);
-    if (currentIndex < statusOrder.length - 1) {
-      const nextStatus = statusOrder[currentIndex + 1];
+    const nextIndex = currentIndex + direction;
+    
+    if (nextIndex >= 0 && nextIndex < statusOrder.length) {
+      const nextStatus = statusOrder[nextIndex];
       await api.updateOrder(id, { status: nextStatus as any });
       onRefresh();
     }
+  };
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const d = date.getDate().toString().padStart(2, '0');
+    const m = (date.getMonth() + 1).toString().padStart(2, '0');
+    const y = date.getFullYear();
+    return `${d}/${m}/${y}`;
   };
 
   return (
@@ -95,13 +105,24 @@ export default function OrderList({ orders, onRefresh }: OrderListProps) {
                   <h3 className="text-lg font-serif font-medium text-stone-800 mt-2">{order.customer_name}</h3>
                   <p className="text-xs text-stone-500">{order.dress_type} • {order.quantity} qty</p>
                 </div>
-                <button 
-                  onClick={() => updateStatus(order.id, order.status)}
-                  className="w-10 h-10 rounded-full border-2 border-stone-100 flex items-center justify-center text-stone-300 hover:border-brand-olive hover:text-brand-olive transition-colors"
-                  title="Next Status"
-                >
-                  {order.status === 'ready' ? <CheckCircle2 className="w-5 h-5" /> : <Circle className="w-5 h-5" />}
-                </button>
+                  <div className="flex gap-2">
+                    {order.status !== 'pending' && (
+                      <button 
+                        onClick={() => updateStatus(order.id, order.status, -1)}
+                        className="w-10 h-10 rounded-full border-2 border-stone-100 flex items-center justify-center text-stone-300 hover:border-brand-olive hover:text-brand-olive transition-colors bg-white/50"
+                        title="Previous Status"
+                      >
+                        <ChevronLeft className="w-5 h-5" />
+                      </button>
+                    )}
+                    <button 
+                      onClick={() => updateStatus(order.id, order.status)}
+                      className="w-10 h-10 rounded-full border-2 border-stone-100 flex items-center justify-center text-stone-300 hover:border-brand-olive hover:text-brand-olive transition-colors bg-white/50"
+                      title="Next Status"
+                    >
+                      {order.status === 'ready' ? <CheckCircle2 className="w-5 h-5" /> : <Circle className="w-5 h-5" />}
+                    </button>
+                  </div>
               </div>
             </div>
             
@@ -114,7 +135,7 @@ export default function OrderList({ orders, onRefresh }: OrderListProps) {
               </div>
               <div className="text-right">
                 <span className="text-[10px] uppercase text-stone-400 font-bold tracking-tighter">Delivery</span>
-                <p className="text-xs font-bold text-stone-600">{new Date(order.delivery_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</p>
+                <p className="text-xs font-bold text-stone-600">{formatDate(order.delivery_date)}</p>
               </div>
             </div>
           </motion.div>
