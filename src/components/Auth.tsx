@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { motion } from 'motion/react';
-import { Lock, Mail, Loader2 } from 'lucide-react';
+import { Lock, Mail, Loader2, AlertTriangle } from 'lucide-react';
 
 export default function Auth() {
   const [email, setEmail] = useState('');
@@ -39,6 +39,16 @@ export default function Auth() {
         </div>
 
         <form onSubmit={handleLogin} className="space-y-7">
+          {!isSupabaseConfigured && (
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-3">
+              <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-[11px] font-bold text-amber-800 uppercase tracking-tight">Configuration Missing</p>
+                <p className="text-[10px] text-amber-700 mt-1">Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your Vercel environment variables.</p>
+              </div>
+            </div>
+          )}
+
           <div>
             <label className="block text-[10px] uppercase font-bold tracking-widest text-stone-400 mb-3 px-1">Email Address</label>
             <div className="relative">

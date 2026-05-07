@@ -14,9 +14,12 @@ export const api = {
   },
   
   createCustomer: async (customer: Partial<Customer>): Promise<Customer> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
     const { data, error } = await supabase
       .from('customers')
-      .insert([customer])
+      .insert([{ ...customer, user_id: user.id }])
       .select()
       .single();
     
@@ -33,7 +36,6 @@ export const api = {
     
     if (error) throw error;
     
-    // Flatten the customer data for compatibility with current UI
     return (data || []).map(order => ({
       ...order,
       customer_name: order.customers?.name,
@@ -42,9 +44,12 @@ export const api = {
   },
   
   createOrder: async (order: Partial<Order>): Promise<Order> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
     const { data, error } = await supabase
       .from('orders')
-      .insert([order])
+      .insert([{ ...order, user_id: user.id }])
       .select()
       .single();
     
@@ -64,7 +69,7 @@ export const api = {
     return data;
   },
 
-  // Stats - calculated client-side to simplify for now or use Supabase RPC if needed
+  // Stats
   getStats: async (): Promise<DashboardStats> => {
     const { data: orders, error } = await supabase
       .from('orders')
@@ -72,14 +77,20 @@ export const api = {
     
     if (error) throw error;
 
-    const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayStr = today.toISOString().split('T')[0];
 
     return {
       pending: orders.filter(o => o.status === 'pending').length,
       in_progress: orders.filter(o => ['cutting', 'stitching', 'trial'].includes(o.status)).length,
       ready: orders.filter(o => o.status === 'ready').length,
-      overdue: orders.filter(o => o.status !== 'delivered' && new Date(o.delivery_date) < now && o.delivery_date !== todayStr).length,
+      overdue: orders.filter(o => {
+        if (o.status === 'delivered') return false;
+        const deliveryDate = new Date(o.delivery_date);
+        deliveryDate.setHours(0, 0, 0, 0);
+        return deliveryDate < today;
+      }).length,
       due_today: orders.filter(o => o.status !== 'delivered' && o.delivery_date === todayStr).length,
     };
   },
