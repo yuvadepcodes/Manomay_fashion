@@ -22,11 +22,24 @@ export default function EditOrderModal({ order, isOpen, onClose, onRefresh }: Ed
   const handleSave = async () => {
     setIsLoading(true);
     try {
-      await api.updateOrder(order.id, formData);
+      // Clean up formData to remove virtual/calculated fields that aren't in Supabase schema
+      const { 
+        id, 
+        user_id, 
+        created_at, 
+        customer_name, 
+        customer_phone, 
+        customers, // Remove foreign key object if it exists
+        ...cleanData 
+      } = formData as any;
+
+      await api.updateOrder(order.id, cleanData);
       onRefresh();
       onClose();
     } catch (error) {
-      console.error('Failed to update order:', error);
+      console.error('Failed to update order. Payload:', cleanData);
+      console.error('Error details:', error);
+      alert(`Failed to save changes: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsLoading(false);
     }
@@ -78,7 +91,27 @@ export default function EditOrderModal({ order, isOpen, onClose, onRefresh }: Ed
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-6 mb-8">
+              <div className="grid grid-cols-2 gap-6 mb-8 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                <div className="col-span-2">
+                  <label className="block text-[10px] uppercase font-bold tracking-widest text-stone-400 mb-2">Dress Type</label>
+                  <input 
+                    type="text" 
+                    value={formData.dress_type} 
+                    onChange={(e) => setFormData({ ...formData, dress_type: e.target.value })}
+                    className="w-full bg-stone-50 border-none rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-brand-olive/20 outline-none"
+                  />
+                </div>
+
+                <div className="col-span-2 md:col-span-1">
+                  <label className="block text-[10px] uppercase font-bold tracking-widest text-stone-400 mb-2">Quantity</label>
+                  <input 
+                    type="number" 
+                    value={formData.quantity} 
+                    onChange={(e) => setFormData({ ...formData, quantity: Number(e.target.value) })}
+                    className="w-full bg-stone-50 border-none rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-brand-olive/20 outline-none"
+                  />
+                </div>
+
                 <div className="col-span-2 md:col-span-1">
                   <label className="block text-[10px] uppercase font-bold tracking-widest text-stone-400 mb-2">Status</label>
                   <select 
@@ -139,12 +172,24 @@ export default function EditOrderModal({ order, isOpen, onClose, onRefresh }: Ed
                   />
                 </div>
 
+                <div className="col-span-2 md:col-span-1"></div>
+
                 <div className="col-span-2 md:col-span-1">
                   <label className="block text-[10px] uppercase font-bold tracking-widest text-stone-400 mb-2">Advance Paid</label>
                   <input 
                     type="number" 
                     value={formData.advance_paid} 
                     onChange={(e) => setFormData({ ...formData, advance_paid: Number(e.target.value) })}
+                    className="w-full bg-stone-50 border-none rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-brand-olive/20 outline-none"
+                  />
+                </div>
+
+                <div className="col-span-2 md:col-span-1">
+                  <label className="block text-[10px] uppercase font-bold tracking-widest text-stone-400 mb-2">Balance Due</label>
+                  <input 
+                    type="number" 
+                    value={formData.balance_amount || 0} 
+                    onChange={(e) => setFormData({ ...formData, balance_amount: Number(e.target.value) })}
                     className="w-full bg-stone-50 border-none rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-brand-olive/20 outline-none"
                   />
                 </div>

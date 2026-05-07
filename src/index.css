@@ -10,6 +10,22 @@
   --color-brand-warm-off-white: #FAF9F6;
 }
 
+@utility custom-scrollbar {
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #e5e5e5;
+    border-radius: 10px;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: #d4d4d4;
+  }
+}
+
 @layer base {
   body {
     @apply bg-brand-warm-off-white text-slate-900 font-sans;
