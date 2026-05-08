@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Customer } from '../types';
 import { Search, Phone, UserPlus, MapPin, ChevronRight, History, Users } from 'lucide-react';
 import { motion } from 'motion/react';
+import AddCustomerModal from './AddCustomerModal';
 
 interface CustomerListProps {
   customers: Customer[];
@@ -10,6 +11,7 @@ interface CustomerListProps {
 
 export default function CustomerList({ customers, onRefresh }: CustomerListProps) {
   const [search, setSearch] = useState('');
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   const filteredCustomers = customers.filter(c => 
     c.name.toLowerCase().includes(search.toLowerCase()) || 
@@ -20,7 +22,10 @@ export default function CustomerList({ customers, onRefresh }: CustomerListProps
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-serif font-semibold text-stone-800 italic">Clients</h2>
-        <button className="flex items-center gap-2 px-4 py-2 bg-brand-cream border border-stone-200 rounded-full text-xs font-bold uppercase tracking-widest text-brand-olive active:scale-95 transition-transform">
+        <button 
+          onClick={() => setIsAddModalOpen(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-brand-cream border border-stone-200 rounded-full text-xs font-bold uppercase tracking-widest text-brand-olive active:scale-95 transition-transform"
+        >
           <UserPlus className="w-4 h-4" />
           Add Client
         </button>
@@ -79,6 +84,12 @@ export default function CustomerList({ customers, onRefresh }: CustomerListProps
           </div>
         )}
       </div>
+
+      <AddCustomerModal 
+        isOpen={isAddModalOpen} 
+        onClose={() => setIsAddModalOpen(false)} 
+        onRefresh={onRefresh} 
+      />
     </div>
   );
 }
