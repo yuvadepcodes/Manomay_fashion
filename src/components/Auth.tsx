@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState, FormEvent } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { motion } from 'motion/react';
 import { Lock, Mail, Loader2, AlertTriangle } from 'lucide-react';
@@ -9,7 +9,7 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);

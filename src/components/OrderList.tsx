@@ -59,8 +59,17 @@ export default function OrderList({ orders, onRefresh }: OrderListProps) {
     onRefresh();
   };
 
-  const formatDate = (dateStr: string) => {
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return '-';
+    // If it's already YYYY-MM-DD
+    const parts = dateStr.split('T')[0].split('-');
+    if (parts.length === 3) {
+      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    
+    // Fallback
     const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return dateStr;
     const d = date.getDate().toString().padStart(2, '0');
     const m = (date.getMonth() + 1).toString().padStart(2, '0');
     const y = date.getFullYear();

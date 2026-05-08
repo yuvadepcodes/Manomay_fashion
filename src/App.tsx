@@ -70,6 +70,9 @@ export default function App() {
         api.getOrders(),
         api.getCustomers()
       ]);
+      if (o.length > 0) {
+        console.log('Order structure check:', Object.keys(o[0]));
+      }
       setStats(s);
       setOrders(o);
       setCustomers(c);

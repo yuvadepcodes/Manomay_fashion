@@ -1,6 +1,43 @@
 import { supabase } from './lib/supabase';
 import { Customer, Order, DashboardStats } from './types';
 
+const METADATA_SEPARATOR = '---Metadata---';
+
+const packOrder = (order: any) => {
+  const { trial_date, cutting_date, balance_amount, ...rest } = order;
+  const metadata = { trial_date, cutting_date, balance_amount };
+  
+  // Strip any existing metadata from notes
+  let cleanNotes = (rest.notes || '').split(METADATA_SEPARATOR)[0].trim();
+  
+  if (trial_date || cutting_date || balance_amount !== undefined) {
+    return {
+      ...rest,
+      notes: `${cleanNotes}\n\n${METADATA_SEPARATOR}\n${JSON.stringify(metadata)}`
+    };
+  }
+  return rest;
+};
+
+const unpackOrder = (order: any) => {
+  if (!order || !order.notes) return order;
+  
+  const parts = order.notes.split(METADATA_SEPARATOR);
+  if (parts.length < 2) return order;
+  
+  try {
+    const metadata = JSON.parse(parts[1].trim());
+    return {
+      ...order,
+      notes: parts[0].trim(),
+      ...metadata
+    };
+  } catch (e) {
+    console.warn('Failed to parse metadata from notes', e);
+    return order;
+  }
+};
+
 export const api = {
   // Customers
   getCustomers: async (): Promise<Customer[]> => {
@@ -36,37 +73,57 @@ export const api = {
     
     if (error) throw error;
     
-    return (data || []).map(order => ({
-      ...order,
-      customer_name: order.customers?.name,
-      customer_phone: order.customers?.phone
-    }));
+    return (data || []).map(order => {
+      const unpacked = unpackOrder(order);
+      return {
+        ...unpacked,
+        customer_name: order.customers?.name,
+        customer_phone: order.customers?.phone
+      };
+    });
   },
   
   createOrder: async (order: Partial<Order>): Promise<Order> => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
 
+    const packed = packOrder(order);
     const { data, error } = await supabase
       .from('orders')
-      .insert([{ ...order, user_id: user.id }])
+      .insert([{ ...packed, user_id: user.id }])
       .select()
       .single();
     
     if (error) throw error;
-    return data;
+    return unpackOrder(data);
   },
   
   updateOrder: async (id: string, updates: Partial<Order>): Promise<Order> => {
+    console.log(`API: Updating order ${id}`, updates);
+    // Since this is a partial update, we need to be careful with virtualization.
+    // However, in our UI, we usually update most fields at once or status.
+    // If trial_date or cutting_date are present, we must pack them.
+    
+    let packed = updates;
+    if ('trial_date' in updates || 'cutting_date' in updates || 'notes' in updates) {
+      // For a truly robust partial update of virtualized fields, we would need 
+      // to fetch the current order first, but let's try to pack what we have.
+      packed = packOrder(updates);
+    }
+
     const { data, error } = await supabase
       .from('orders')
-      .update(updates)
+      .update(packed)
       .eq('id', id)
       .select()
       .single();
     
-    if (error) throw error;
-    return data;
+    if (error) {
+      console.error('API Update Error:', error);
+      throw error;
+    }
+    console.log('API Update Success:', data);
+    return unpackOrder(data);
   },
 
   deleteOrder: async (id: string): Promise<void> => {
