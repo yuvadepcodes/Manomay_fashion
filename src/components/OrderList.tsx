@@ -50,15 +50,6 @@ export default function OrderList({ orders, onRefresh }: OrderListProps) {
     setIsEditModalOpen(true);
   };
 
-  const cyclePriority = async (id: string, currentPriority: string) => {
-    const priorities = ['normal', 'high', 'urgent'];
-    const currentIndex = priorities.indexOf(currentPriority);
-    const nextIndex = (currentIndex + 1) % priorities.length;
-    const nextPriority = priorities[nextIndex];
-    await api.updateOrder(id, { priority: nextPriority as any });
-    onRefresh();
-  };
-
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return '-';
     // If it's already YYYY-MM-DD
@@ -167,15 +158,11 @@ export default function OrderList({ orders, onRefresh }: OrderListProps) {
             </div>
             
             <div className="flex justify-between items-center pt-3 border-t border-stone-50 mt-4">
-              <button 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  cyclePriority(order.id, order.priority);
-                }}
-                className="flex gap-2 items-center hover:bg-stone-50 px-2 py-1 -ml-2 rounded-full transition-colors cursor-pointer group"
-                title="Change Priority"
+              <div 
+                className="flex gap-2 items-center px-1 py-1 rounded-full text-stone-400"
+                title="Automated Priority Status"
               >
-                <div className={`w-1.5 h-1.5 rounded-full transition-all group-hover:scale-125 ${
+                <div className={`w-1.5 h-1.5 rounded-full ${
                   order.priority === 'urgent' 
                     ? 'bg-rose-500 shadow-[0_0_4px_rgba(244,63,94,0.5)]' 
                     : order.priority === 'high'
@@ -184,9 +171,9 @@ export default function OrderList({ orders, onRefresh }: OrderListProps) {
                 }`} />
                 <span className={`text-[10px] font-bold uppercase tracking-widest ${
                   order.priority === 'urgent' ? 'text-rose-500' : 
-                  order.priority === 'high' ? 'text-amber-600' : 'text-stone-400'
+                  order.priority === 'high' ? 'text-amber-600' : 'text-stone-450'
                 }`}>{order.priority}</span>
-              </button>
+              </div>
               <div className="text-right">
                 <span className="text-[10px] uppercase text-stone-400 font-bold tracking-tighter">Delivery</span>
                 <p className="text-xs font-bold text-stone-600">{formatDate(order.delivery_date)}</p>

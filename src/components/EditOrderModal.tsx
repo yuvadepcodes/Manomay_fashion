@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react';
 import { Order } from '../types';
 import { X, Calendar, Save, Trash2, Scissors } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { api } from '../api';
+import { api, calculateOrderPriority } from '../api';
+
+import { notificationService } from '../services/notificationService';
 
 interface EditOrderModalProps {
   order: Order;
@@ -48,10 +50,24 @@ export default function EditOrderModal({ order, isOpen, onClose, onRefresh }: Ed
       notes: formData.notes || ''
     };
 
-    console.log('Attempting to update order:', order.id, updatableData);
-
     try {
       await api.updateOrder(order.id, updatableData);
+
+      // Trigger notification if status changed to ready or delivered
+      if (formData.status !== order.status) {
+        if (formData.status === 'ready') {
+          notificationService.sendLocalNotification(
+            'Order Ready!',
+            `${order.customer_name}'s ${order.dress_type} is now ready for pickup.`
+          );
+        } else if (formData.status === 'delivered') {
+          notificationService.sendLocalNotification(
+            'Order Delivered',
+            `${order.customer_name}'s order has been marked as delivered.`
+          );
+        }
+      }
+
       onRefresh();
       onClose();
     } catch (error: any) {
@@ -177,17 +193,25 @@ export default function EditOrderModal({ order, isOpen, onClose, onRefresh }: Ed
                     </select>
                   </div>
 
-                  <div className="col-span-2 md:col-span-1">
+                   <div className="col-span-2 md:col-span-1">
                     <label className="block text-[10px] uppercase font-bold tracking-widest text-stone-400 mb-2">Priority</label>
-                    <select 
-                      value={formData.priority} 
-                      onChange={(e) => setFormData({ ...formData, priority: e.target.value as any })}
-                      className="w-full bg-stone-50 border-none rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-brand-olive/20 outline-none"
-                    >
-                      {['normal', 'high', 'urgent'].map(p => (
-                        <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
-                      ))}
-                    </select>
+                    <div className="w-full bg-stone-50 border-none rounded-2xl px-4 py-3 text-sm font-medium flex items-center justify-between">
+                      {(() => {
+                        const pri = calculateOrderPriority(formData.delivery_date);
+                        return (
+                          <>
+                            <span className="text-stone-500 text-xs">Automated</span>
+                            <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full ${
+                              pri === 'urgent' ? 'bg-rose-50 text-rose-600' :
+                              pri === 'high' ? 'bg-amber-50 text-amber-600' :
+                              'bg-stone-105 text-stone-550'
+                            }`}>
+                              {pri}
+                            </span>
+                          </>
+                        );
+                      })()}
+                    </div>
                   </div>
 
                   <div className="col-span-2 md:col-span-1">

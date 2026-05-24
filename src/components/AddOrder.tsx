@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Customer, Order } from '../types';
-import { api } from '../api';
+import { api, calculateOrderPriority } from '../api';
 import { Search, UserPlus, Phone, Package, Calendar, AlertTriangle, Check, ChevronDown } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -17,6 +17,7 @@ export default function AddOrder({ customers, onRefresh }: AddOrderProps) {
     dress_type: '',
     quantity: 1,
     priority: 'normal' as const,
+    cutting_date: '',
     delivery_date: '',
     notes: '',
     advance_paid: 0,
@@ -159,26 +160,44 @@ export default function AddOrder({ customers, onRefresh }: AddOrderProps) {
             </div>
             <div>
               <label className="block text-[10px] uppercase font-bold tracking-widest text-stone-400 mb-2">Priority</label>
-              <select 
-                className="w-full bg-white px-5 py-4 rounded-3xl border border-stone-100 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-olive/20 text-sm appearance-none"
-                value={orderData.priority}
-                onChange={(e) => setOrderData({ ...orderData, priority: e.target.value as any })}
-              >
-                <option value="normal">Normal</option>
-                <option value="high">High</option>
-                <option value="urgent">Urgent</option>
-              </select>
+              <div className="w-full bg-stone-50 border border-stone-100 px-5 py-4 rounded-3xl text-sm font-medium flex items-center justify-between">
+                <span className="text-stone-500">Calculated Automatically</span>
+                {(() => {
+                  const pri = calculateOrderPriority(orderData.delivery_date);
+                  return (
+                    <span className={`text-xs font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${
+                      pri === 'urgent' ? 'bg-rose-50 text-rose-600' :
+                      pri === 'high' ? 'bg-amber-50 text-amber-600' :
+                      'bg-stone-100 text-stone-500'
+                    }`}>
+                      {pri}
+                    </span>
+                  );
+                })()}
+              </div>
             </div>
           </div>
 
-          <div>
-            <label className="block text-[10px] uppercase font-bold tracking-widest text-stone-400 mb-2">Delivery Date</label>
-            <input 
-              type="date" 
-              className="w-full bg-white px-5 py-4 rounded-3xl border border-stone-100 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-olive/20"
-              value={orderData.delivery_date}
-              onChange={(e) => setOrderData({ ...orderData, delivery_date: e.target.value })}
-            />
+          <div className="space-y-4">
+            <div>
+              <label className="block text-[10px] uppercase font-bold tracking-widest text-stone-400 mb-2">Cutting Schedule</label>
+              <input 
+                type="date" 
+                className="w-full bg-white px-5 py-4 rounded-3xl border border-stone-100 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-olive/20"
+                value={orderData.cutting_date}
+                onChange={(e) => setOrderData({ ...orderData, cutting_date: e.target.value })}
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] uppercase font-bold tracking-widest text-stone-400 mb-2">Delivery Date</label>
+              <input 
+                type="date" 
+                className="w-full bg-white px-5 py-4 rounded-3xl border border-stone-100 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-olive/20"
+                value={orderData.delivery_date}
+                onChange={(e) => setOrderData({ ...orderData, delivery_date: e.target.value })}
+              />
+            </div>
           </div>
 
           <div className="flex gap-4 pt-4">
@@ -200,11 +219,27 @@ export default function AddOrder({ customers, onRefresh }: AddOrderProps) {
               <span className="text-stone-400">Items</span>
               <span className="font-medium">{orderData.quantity}x {orderData.dress_type}</span>
             </div>
+            {orderData.cutting_date && (
+              <div className="flex justify-between text-sm">
+                <span className="text-stone-400">Cutting Date</span>
+                <span className="font-semibold text-stone-700">
+                  {(() => {
+                    const date = new Date(orderData.cutting_date);
+                    if (isNaN(date.getTime())) return '-';
+                    const d = date.getDate().toString().padStart(2, '0');
+                    const m = (date.getMonth() + 1).toString().padStart(2, '0');
+                    const y = date.getFullYear();
+                    return `${d}/${m}/${y}`;
+                  })()}
+                </span>
+              </div>
+            )}
             <div className="flex justify-between text-sm">
               <span className="text-stone-400">Due Date</span>
               <span className="font-bold text-brand-olive">
                 {(() => {
                   const date = new Date(orderData.delivery_date);
+                  if (isNaN(date.getTime())) return '-';
                   const d = date.getDate().toString().padStart(2, '0');
                   const m = (date.getMonth() + 1).toString().padStart(2, '0');
                   const y = date.getFullYear();

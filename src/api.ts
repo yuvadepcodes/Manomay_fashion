@@ -19,22 +19,47 @@ const packOrder = (order: any) => {
   return rest;
 };
 
+export const calculateOrderPriority = (deliveryDateStr?: string): 'normal' | 'high' | 'urgent' => {
+  if (!deliveryDateStr) return 'normal';
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const delivery = new Date(deliveryDateStr);
+  delivery.setHours(0, 0, 0, 0);
+  
+  const diffTime = delivery.getTime() - today.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (diffDays <= 2) {
+    return 'urgent';
+  } else if (diffDays <= 5) {
+    return 'high';
+  } else {
+    return 'normal';
+  }
+};
+
 const unpackOrder = (order: any) => {
-  if (!order || !order.notes) return order;
+  if (!order) return order;
+  
+  const automatedPriority = calculateOrderPriority(order.delivery_date);
+  let result = { ...order, priority: automatedPriority };
+  
+  if (!order.notes) return result;
   
   const parts = order.notes.split(METADATA_SEPARATOR);
-  if (parts.length < 2) return order;
+  if (parts.length < 2) return result;
   
   try {
     const metadata = JSON.parse(parts[1].trim());
     return {
-      ...order,
+      ...result,
       notes: parts[0].trim(),
-      ...metadata
+      ...metadata,
+      priority: automatedPriority
     };
   } catch (e) {
     console.warn('Failed to parse metadata from notes', e);
-    return order;
+    return result;
   }
 };
 

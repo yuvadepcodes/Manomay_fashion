@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { api } from './api';
+import { notificationService } from './services/notificationService';
 import { supabase } from './lib/supabase';
 import { Session } from '@supabase/supabase-js';
 import { Customer, Order, DashboardStats } from './types';
@@ -88,6 +89,16 @@ export default function App() {
       fetchData();
     }
   }, [session]);
+
+  useEffect(() => {
+    if (orders.length > 0) {
+      notificationService.checkAndTriggerScheduledNotifications(orders);
+      const interval = setInterval(() => {
+        notificationService.checkAndTriggerScheduledNotifications(orders);
+      }, 5 * 60 * 1000); // Check once every 5 minutes
+      return () => clearInterval(interval);
+    }
+  }, [orders]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
