@@ -23,7 +23,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { api } from './api';
 import { notificationService } from './services/notificationService';
-import { supabase } from './lib/supabase';
+import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { Session } from '@supabase/supabase-js';
 import { Customer, Order, DashboardStats } from './types';
 import Dashboard from './components/Dashboard';
@@ -50,16 +50,70 @@ export default function App() {
 
   useEffect(() => {
     // Check initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-    });
+    const localEmail = localStorage.getItem('actual_user_email');
+    const localMode = localStorage.getItem('local_mode_enabled') === 'true' || !isSupabaseConfigured;
+    
+    if (localMode) {
+      if (localEmail) {
+        setSession({ user: { id: 'local-user', email: localEmail } } as any);
+      } else {
+        setSession(null);
+      }
+    } else {
+      supabase.auth.getSession().then(({ data: { session }, error }) => {
+        if (error) {
+          const msg = error.message || '';
+          if (msg.toLowerCase().includes('fetch') || msg.toLowerCase().includes('network') || msg.toLowerCase().includes('unreachable') || msg.toLowerCase().includes('cors')) {
+            throw error;
+          }
+        }
+        setSession(session);
+      }).catch(err => {
+        console.warn('Failed to retrieve session from Supabase, enabling local fallback mode...', err);
+        localStorage.setItem('local_mode_enabled', 'true');
+        if (localEmail) {
+          setSession({ user: { id: 'local-user', email: localEmail } } as any);
+        } else {
+          setSession(null);
+        }
+      });
+    }
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
+    // Listen for auth changes only if Supabase is configured and not in local mode
+    let subscription: any = null;
+    if (!localMode) {
+      try {
+        const res = supabase.auth.onAuthStateChange((_event, session) => {
+          const isLocal = localStorage.getItem('local_mode_enabled') === 'true';
+          if (session) {
+            setSession(session);
+          } else if (!isLocal) {
+            setSession(null);
+          }
+        });
+        subscription = res.data?.subscription;
+      } catch (err) {
+        console.warn('Failed to register auth state change listener', err);
+      }
+    }
 
-    return () => subscription.unsubscribe();
+    const handleLocalModeChange = () => {
+      const email = localStorage.getItem('actual_user_email');
+      if (email) {
+        setSession({ user: { id: 'local-user', email } } as any);
+      } else {
+        setSession(null);
+      }
+    };
+
+    window.addEventListener('local_mode_changed', handleLocalModeChange);
+
+    return () => {
+      if (subscription) {
+        subscription.unsubscribe();
+      }
+      window.removeEventListener('local_mode_changed', handleLocalModeChange);
+    };
   }, []);
 
   const fetchData = async () => {
@@ -101,7 +155,16 @@ export default function App() {
   }, [orders]);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    localStorage.removeItem('actual_user_email');
+    localStorage.removeItem('local_mode_enabled');
+    if (isSupabaseConfigured && localStorage.getItem('local_mode_enabled') !== 'true') {
+      try {
+        await supabase.auth.signOut();
+      } catch (err) {
+        console.warn('Failed to sign out from Supabase', err);
+      }
+    }
+    setSession(null);
   };
 
   if (!session) {
@@ -162,6 +225,15 @@ export default function App() {
             New Order
           </button>
           
+          {localStorage.getItem('actual_user_email') && (
+            <div className="text-center pt-2 pb-1 border-t border-stone-100">
+              <p className="text-[9px] text-stone-400 font-bold uppercase tracking-wider">Logged in as</p>
+              <p className="text-[11px] font-medium text-stone-600 truncate px-2" title={localStorage.getItem('actual_user_email') || ''}>
+                {localStorage.getItem('actual_user_email')}
+              </p>
+            </div>
+          )}
+
           <button 
             onClick={handleLogout}
             className="w-full flex items-center justify-center gap-2 py-3 text-stone-400 hover:text-rose-500 transition-colors text-[10px] font-bold uppercase tracking-widest"
@@ -174,11 +246,34 @@ export default function App() {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
+        {localStorage.getItem('local_mode_enabled') === 'true' && (
+          <div className="bg-amber-50 border-b border-amber-200/50 px-6 py-3 flex items-center justify-between text-amber-800 text-[11px] font-medium sticky top-0 z-40 backdrop-blur-md">
+            <span className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+              Running in local-only fallback mode. All entries and changes are saved securely to your device.
+            </span>
+            <button 
+              onClick={() => {
+                localStorage.removeItem('local_mode_enabled');
+                window.location.reload();
+              }}
+              className="bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold px-2.5 py-1 rounded-full text-[10px] uppercase tracking-widest transition-all cursor-pointer shadow-sm hover:scale-[1.02] active:scale-95"
+            >
+              Retry Cloud Sync
+            </button>
+          </div>
+        )}
+
         {/* Mobile-Only Header */}
         <header className="md:hidden p-6 sticky top-0 bg-brand-warm-off-white/80 backdrop-blur-md z-40 border-b border-stone-200">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-serif font-semibold tracking-tight text-brand-olive italic text-center">Manomay</h1>
+              <h1 className="text-3xl font-serif font-semibold tracking-tight text-brand-olive italic text-left">Manomay</h1>
+              {localStorage.getItem('actual_user_email') && (
+                <p className="text-[9px] text-stone-500 font-semibold tracking-wide text-left mt-0.5 truncate max-w-[200px]">
+                  Active: {localStorage.getItem('actual_user_email')}
+                </p>
+              )}
             </div>
             <button onClick={handleLogout} className="p-2 text-stone-400">
               <LogOut className="w-5 h-5" />

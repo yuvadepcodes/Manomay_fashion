@@ -1,5 +1,6 @@
 import React, { useState, FormEvent } from 'react';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { createClient } from '@supabase/supabase-js';
+import { supabase, isSupabaseConfigured, supabaseUrl, supabaseAnonKey } from '../lib/supabase';
 import { motion } from 'motion/react';
 import { Lock, Mail, Loader2, AlertTriangle } from 'lucide-react';
 
@@ -14,13 +15,149 @@ export default function Auth() {
     setLoading(true);
     setError(null);
     
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      // If Supabase is not configured, automatically log in using local offline mode
+      if (!isSupabaseConfigured) {
+        console.log('Supabase is not configured. Logging in via Local Offline Mode...');
+        localStorage.setItem('actual_user_email', email);
+        localStorage.setItem('local_mode_enabled', 'true');
+        window.location.reload();
+        return;
+      }
 
-    if (error) setError(error.message);
-    setLoading(false);
+      // 1. Verify user's entered credentials using a non-persistent temporary client
+      let authData = null;
+      let authError = null;
+
+      try {
+        const tempSupabase = createClient(supabaseUrl, supabaseAnonKey, {
+          auth: { persistSession: false }
+        });
+        
+        const res = await tempSupabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        authData = res.data;
+        authError = res.error;
+      } catch (fetchErr: any) {
+        console.warn('Authentication server unreachable (Failed to fetch). Activating Local Offline Mode...', fetchErr);
+        localStorage.setItem('actual_user_email', email);
+        localStorage.setItem('local_mode_enabled', 'true');
+        window.location.reload();
+        return;
+      }
+
+      if (authError) {
+        const msg = authError.message || '';
+        if (msg.toLowerCase().includes('fetch') || msg.toLowerCase().includes('network') || msg.toLowerCase().includes('unreachable') || msg.toLowerCase().includes('cors')) {
+          console.warn('Authentication server returned fetch/network error. Activating Local Offline Mode...');
+          localStorage.setItem('actual_user_email', email);
+          localStorage.setItem('local_mode_enabled', 'true');
+          window.location.reload();
+          return;
+        }
+        setError(msg);
+        setLoading(false);
+        return;
+      }
+
+      // 2. Success! The user is authenticated. Now sign in the persistent client to the centralized shared workspace account.
+      const centralEmail = 'manomay.studio@gmail.com';
+      const centralPassword = 'CentralWorkspacePassword2026!#';
+
+      let centralError = null;
+      try {
+        const res = await supabase.auth.signInWithPassword({
+          email: centralEmail,
+          password: centralPassword,
+        });
+        centralError = res.error;
+      } catch (fetchErr: any) {
+        console.warn('Central database server unreachable. Activating Local Offline Mode...', fetchErr);
+        localStorage.setItem('actual_user_email', email);
+        localStorage.setItem('local_mode_enabled', 'true');
+        window.location.reload();
+        return;
+      }
+
+      // 3. If central account doesn't exist yet, register/sign it up automatically
+      if (centralError) {
+        const cMsg = centralError.message || '';
+        if (cMsg.toLowerCase().includes('fetch') || cMsg.toLowerCase().includes('network') || cMsg.toLowerCase().includes('unreachable') || cMsg.toLowerCase().includes('cors')) {
+          console.warn('Central database returned fetch/network error. Activating Local Offline Mode...');
+          localStorage.setItem('actual_user_email', email);
+          localStorage.setItem('local_mode_enabled', 'true');
+          window.location.reload();
+          return;
+        }
+
+        console.log('Central shared workspace account does not exist. Provisioning now...');
+        try {
+          const { error: signUpError } = await supabase.auth.signUp({
+            email: centralEmail,
+            password: centralPassword,
+          });
+
+          if (!signUpError) {
+            // Retry signing in after signup
+            const { error: retryError } = await supabase.auth.signInWithPassword({
+              email: centralEmail,
+              password: centralPassword,
+            });
+            centralError = retryError;
+          } else {
+            centralError = signUpError;
+          }
+        } catch (signUpFetchErr: any) {
+          console.warn('Provisioning failed due to network error. Activating Local Offline Mode...');
+          localStorage.setItem('actual_user_email', email);
+          localStorage.setItem('local_mode_enabled', 'true');
+          window.location.reload();
+          return;
+        }
+      }
+
+      if (centralError) {
+        const cMsg = centralError.message || '';
+        if (cMsg.toLowerCase().includes('fetch') || cMsg.toLowerCase().includes('network') || cMsg.toLowerCase().includes('unreachable') || cMsg.toLowerCase().includes('cors')) {
+          console.warn('Central database registration returned fetch/network error. Activating Local Offline Mode...');
+          localStorage.setItem('actual_user_email', email);
+          localStorage.setItem('local_mode_enabled', 'true');
+          window.location.reload();
+          return;
+        }
+        
+        console.warn('Central workspace access failed. Falling back to personal account workspace...', cMsg);
+        try {
+          const { error: personalError } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
+          if (personalError) {
+            throw personalError;
+          }
+          localStorage.setItem('actual_user_email', email);
+          localStorage.removeItem('local_mode_enabled');
+          window.location.reload();
+          return;
+        } catch (personalFallError: any) {
+          console.warn('Personal fallback authentication failed, falling back to Local Offline Mode...', personalFallError);
+          localStorage.setItem('actual_user_email', email);
+          localStorage.setItem('local_mode_enabled', 'true');
+          window.location.reload();
+          return;
+        }
+      } else {
+        // Save the user's personal email to show in profile or settings
+        localStorage.setItem('actual_user_email', email);
+        localStorage.removeItem('local_mode_enabled');
+      }
+    } catch (err: any) {
+      setError(err?.message || 'An unexpected error occurred during authorization');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
